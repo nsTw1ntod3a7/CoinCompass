@@ -13,7 +13,8 @@
         *{ margin:0; padding:0; box-sizing:border-box; font-family:Inter,system-ui; }
         body{ background:#f5f7fb; color:#222; }
         header{ height:70px; background:white; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 3px 20px rgba(0,0,0,0.05); }
-        .logo-title{ position:absolute; left:40px; font-size:22px; font-weight:800; color: #4b6cff; }
+        /* Вернул старый черный логотип */
+        .logo-title{ position:absolute; left:40px; font-size:22px; font-weight:800; color: #222; }
         nav{ display:flex; gap:25px; }
         nav button{ border:none; background:none; font-size:15px; cursor:pointer; padding:8px 16px; border-radius:8px; transition: 0.3s; }
         nav button.active{ background:#4b6cff; color:white; }
@@ -66,7 +67,7 @@
                 <option>Прочее</option>
             </select>
             <input id="desc" placeholder="Описание">
-            <button class="main-btn" onclick="addExpense()">Сохранить в облако</button>
+            <button class="main-btn" onclick="addExpense()">Сохранить расход</button>
         </div>
     </div>
 
@@ -120,7 +121,7 @@
 <div id="notify" class="notify">Готово</div>
 
 <script>
-
+// Твой конфиг Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDUKNKvSuoPYrCe7d6Xnc8rIdfq7ZMVf2k",
   authDomain: "coincompass-hack.firebaseapp.com",
@@ -128,21 +129,18 @@ const firebaseConfig = {
   storageBucket: "coincompass-hack.firebasestorage.app",
   messagingSenderId: "972639367478",
   appId: "1:972639367478:web:49ce98b93c2cabd3250397",
-  // Адрес базы: 
   databaseURL: "https://coincompass-hack-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
-// Инициализация
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let expenses = [];
 let chart = null;
 
-// 
+// Слушаем изменения в базе
 db.ref("expenses").on("value", (snapshot) => {
     const data = snapshot.val();
-    // Превращаем объект Firebase в массив
     expenses = data ? Object.keys(data).map(key => ({...data[key], firebaseId: key})) : [];
     render();
 });
@@ -162,7 +160,6 @@ function tab(id,btn){
     render();
 }
 
-//  В ОБЛАКО
 function addExpense(){
     let amount=document.getElementById("amount")
     let category=document.getElementById("category")
@@ -177,17 +174,15 @@ function addExpense(){
         date: new Date().toISOString()
     };
 
-    // Сохранение в Firebase
     db.ref("expenses").push(newItem);
 
     amount.value=""
     desc.value=""
-    notify("Сохранено в облаке Google")
+    notify("Сохранено")
 }
 
-// УДАЛЕНИЕ ИЗ ОБЛАКА
 function del(firebaseId){
-    if(confirm("Удалить запись из базы?")) {
+    if(confirm("Удалить запись?")) {
         db.ref("expenses/" + firebaseId).remove();
         notify("Удалено");
     }
@@ -210,7 +205,7 @@ function renderHistory(){
             <td>${e.amount} ₽</td>
             <td>${e.desc}</td>
             <td>
-                <button class="delete-btn" onclick="del('${e.firebaseId}')">Удал</button>
+                <button class="delete-btn" onclick="del('${e.firebaseId}')">Удалить</button>
             </td>
         </tr>`;
     })
