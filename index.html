@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoinCompass | Firebase Cloud</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        *{ margin:0; padding:0; box-sizing:border-box; font-family:Inter,system-ui; }
+        body{ background:#f5f7fb; color:#222; }
+        header{ height:70px; background:white; display:flex; align-items:center; justify-content:center; position:relative; box-shadow:0 3px 20px rgba(0,0,0,0.05); }
+        .logo-title{ position:absolute; left:40px; font-size:22px; font-weight:800; color: #4b6cff; }
+        nav{ display:flex; gap:25px; }
+        nav button{ border:none; background:none; font-size:15px; cursor:pointer; padding:8px 16px; border-radius:8px; transition: 0.3s; }
+        nav button.active{ background:#4b6cff; color:white; }
+        .container{ max-width:1100px; margin:auto; padding:40px; }
+        .section{ display:none; }
+        .section.active{ display:block; }
+        h2{ margin-bottom:20px; }
+        .form{ background:white; padding:25px; border-radius:14px; box-shadow:0 10px 25px rgba(0,0,0,0.05); }
+        .form input, .form select{ width:100%; padding:13px; margin-bottom:18px; border:1px solid #ddd; border-radius:8px; font-size:14px; }
+        .main-btn{ width:100%; padding:14px; border:none; background:#4b6cff; color:white; border-radius:8px; cursor:pointer; font-size:15px; font-weight: 600; }
+        table{ width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.04); }
+        th,td{ padding:14px; border-bottom:1px solid #eee; }
+        th{ background:#fafafa; text-align:left; color: #777; font-size: 13px; }
+        .edit-btn{ background:#4b6cff; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; margin-right: 5px; }
+        .delete-btn{ background:#ff4b4b; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; }
+        .stats{ display:grid; grid-template-columns: 1fr 1fr; gap:25px; }
+        .chart-wrap{ grid-column: 1 / 3; background:white; padding:30px; border-radius:14px; box-shadow:0 10px 25px rgba(0,0,0,0.05); }
+        .card{ background:white; padding:30px; border-radius:14px; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.05); }
+        .card-title{ color:#777; font-size:14px; }
+        .card-value{ font-size:28px; font-weight:700; margin-top:8px; }
+        .tools{ margin-top:20px; display:flex; gap:10px; }
+        .tools button{ padding:10px 15px; border:none; border-radius:6px; background:#eee; cursor:pointer; }
+        .notify{ position:fixed; bottom:20px; left:50%; transform:translate(-50%,20px); background:#222; color:white; padding:14px 22px; border-radius:10px; opacity:0; transition:0.4s; pointer-events: none; z-index: 1000; }
+        .notify.show{ opacity:1; transform:translate(-50%,0); }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-title">CoinCompass</div>
+    <nav>
+        <button class="tab active" onclick="tab('add',this)">Добавить</button>
+        <button class="tab" onclick="tab('history',this)">История</button>
+        <button class="tab" onclick="tab('stats',this)">Статистика</button>
+        <button class="tab" onclick="tab('months',this)">По месяцам</button>
+    </nav>
+</header>
+
+<div class="container">
+    <div id="add" class="section active">
+        <h2>Добавить расход</h2>
+        <div class="form">
+            <input id="amount" type="number" placeholder="Сумма">
+            <select id="category">
+                <option>Еда</option>
+                <option>Транспорт</option>
+                <option>Развлечения</option>
+                <option>Жилье</option>
+                <option>Покупки</option>
+                <option>Прочее</option>
+            </select>
+            <input id="desc" placeholder="Описание">
+            <button class="main-btn" onclick="addExpense()">Сохранить в облако</button>
+        </div>
+    </div>
+
+    <div id="history" class="section">
+        <h2>История расходов</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Категория</th>
+                    <th>Сумма</th>
+                    <th>Описание</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+        <div class="tools">
+            <button onclick="exportData()">Скачать JSON</button>
+        </div>
+    </div>
+
+    <div id="stats" class="section">
+        <h2>Статистика</h2>
+        <div class="stats">
+            <div class="card">
+                <div class="card-title">Всего расходов</div>
+                <div id="total" class="card-value">0</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Операций</div>
+                <div id="count" class="card-value">0</div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="months" class="section">
+        <h2>Расходы по месяцам</h2>
+        <table>
+            <thead>
+                <tr><th>Месяц</th><th>Сумма</th></tr>
+            </thead>
+            <tbody id="monthBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="notify" class="notify">Готово</div>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDUKNKvSuoPYrCe7d6Xnc8rIdfq7ZMVf2k",
+  authDomain: "coincompass-hack.firebaseapp.com",
+  projectId: "coincompass-hack",
+  storageBucket: "coincompass-hack.firebasestorage.app",
+  messagingSenderId: "972639367478",
+  appId: "1:972639367478:web:49ce98b93c2cabd3250397",
+  // Адрес базы: 
+  databaseURL: "https://coincompass-hack-default-rtdb.europe-west1.firebasedatabase.app"
+};
+
+// Инициализация
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let expenses = [];
+let chart = null;
+
+// 
+db.ref("expenses").on("value", (snapshot) => {
+    const data = snapshot.val();
+    // Превращаем объект Firebase в массив
+    expenses = data ? Object.keys(data).map(key => ({...data[key], firebaseId: key})) : [];
+    render();
+});
+
+function notify(text){
+    let n=document.getElementById("notify")
+    n.innerText=text
+    n.classList.add("show")
+    setTimeout(()=>{n.classList.remove("show")},2000)
+}
+
+function tab(id,btn){
+    document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"))
+    document.getElementById(id).classList.add("active")
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"))
+    btn.classList.add("active")
+    render();
+}
+
+//  В ОБЛАКО
+function addExpense(){
+    let amount=document.getElementById("amount")
+    let category=document.getElementById("category")
+    let desc=document.getElementById("desc")
+
+    if(!amount.value) return;
+
+    const newItem = {
+        amount: Number(amount.value),
+        category: category.value,
+        desc: desc.value || "-",
+        date: new Date().toISOString()
+    };
+
+    // Сохранение в Firebase
+    db.ref("expenses").push(newItem);
+
+    amount.value=""
+    desc.value=""
+    notify("Сохранено в облаке Google")
+}
+
+// УДАЛЕНИЕ ИЗ ОБЛАКА
+function del(firebaseId){
+    if(confirm("Удалить запись из базы?")) {
+        db.ref("expenses/" + firebaseId).remove();
+        notify("Удалено");
+    }
+}
+
+function render(){
+    renderHistory();
+    renderStats();
+    renderMonths();
+}
+
+function renderHistory(){
+    let html=""
+    expenses.slice().reverse().forEach(e=>{
+        let date=new Date(e.date).toLocaleDateString()
+        html += `
+        <tr>
+            <td>${date}</td>
+            <td>${e.category}</td>
+            <td>${e.amount} ₽</td>
+            <td>${e.desc}</td>
+            <td>
+                <button class="delete-btn" onclick="del('${e.firebaseId}')">Удал</button>
+            </td>
+        </tr>`;
+    })
+    document.getElementById("historyBody").innerHTML = html;
+}
+
+function renderStats(){
+    let total=0;
+    let cats={};
+    expenses.forEach(e=>{
+        total += e.amount;
+        cats[e.category] = (cats[e.category] || 0) + e.amount;
+    });
+
+    document.getElementById("total").innerText = total + " ₽";
+    document.getElementById("count").innerText = expenses.length;
+
+    let ctx = document.getElementById("chart");
+    if(chart) chart.destroy();
+    
+    if(expenses.length > 0) {
+        chart = new Chart(ctx, {
+            type: "doughnut",
+            data: {
+                labels: Object.keys(cats),
+                datasets: [{ 
+                    data: Object.values(cats),
+                    backgroundColor: ['#4b6cff', '#ff4b4b', '#ffb84b', '#2ecc71', '#9b59b6', '#34495e']
+                }]
+            },
+            options: { plugins: { legend: { position: "bottom" } } }
+        });
+    }
+}
+
+function renderMonths(){
+    let months={};
+    expenses.forEach(e=>{
+        let m = new Date(e.date).toLocaleString("ru",{month:"long",year:"numeric"});
+        months[m] = (months[m] || 0) + e.amount;
+    });
+
+    let html="";
+    for(let m in months){
+        html += `<tr><td>${m}</td><td>${months[m]} ₽</td></tr>`;
+    }
+    document.getElementById("monthBody").innerHTML = html;
+}
+
+function exportData(){
+    const data = JSON.stringify(expenses);
+    const blob = new Blob([data],{type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "coincompass_backup.json";
+    a.click();
+}
+</script>
+</body>
+</html>
