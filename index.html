@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoinCompass | Firebase Cloud</title>
-    
     <link rel="stylesheet" href="css/style.css">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
 <header>
     <div class="logo-title">CoinCompass</div>
-    <nav>
+    <nav id="mainNav" style="display:none;">
         <button class="tab active" onclick="tab('add',this)">Добавить</button>
         <button class="tab" onclick="tab('history',this)">История</button>
         <button class="tab" onclick="tab('stats',this)">Статистика</button>
@@ -23,7 +23,19 @@
     </nav>
 </header>
 
-<div class="container">
+<div id="loginSection" class="container" style="max-width:400px; margin-top:100px;">
+    <div class="form">
+        <h2>Вход / Регистрация</h2>
+        <input type="email" id="loginEmail" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
+        <input type="password" id="loginPassword" placeholder="Пароль" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
+        <button class="main-btn" onclick="login()">Войти</button>
+        <button class="main-btn" onclick="register()" style="background:#2ecc71; margin-top:10px;">Создать аккаунт</button>
+    </div>
+</div>
+
+<button id="logoutBtn" onclick="logout()" style="position:fixed; bottom:20px; left:20px; padding:10px 15px; background:#ff4b4b; color:white; border:none; border-radius:8px; cursor:pointer; display:none; z-index:1001;">Выйти</button>
+
+<div class="container" id="mainApp" style="display:none;">
     <div id="add" class="section active">
         <h2 id="formTitle">Добавить расход</h2>
         <div class="form">
@@ -46,13 +58,7 @@
         <h2>История расходов</h2>
         <table>
             <thead>
-                <tr>
-                    <th>Дата</th>
-                    <th>Категория</th>
-                    <th>Сумма</th>
-                    <th>Описание</th>
-                    <th>Действие</th>
-                </tr>
+                <tr><th>Дата</th><th>Категория</th><th>Сумма</th><th>Описание</th><th>Действие</th></tr>
             </thead>
             <tbody id="historyBody"></tbody>
         </table>
@@ -81,9 +87,7 @@
     <div id="months" class="section">
         <h2>Расходы по месяцам</h2>
         <table>
-            <thead>
-                <tr><th>Месяц</th><th>Сумма</th></tr>
-            </thead>
+            <thead><tr><th>Месяц</th><th>Сумма</th></tr></thead>
             <tbody id="monthBody"></tbody>
         </table>
     </div>
