@@ -10,16 +10,56 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
 
 let expenses = [];
 let chart = null;
 let editingId = null;
+let currentUser = null;
 
-db.ref("expenses").on("value", (snapshot) => {
-    const data = snapshot.val();
-    expenses = data ? Object.keys(data).map(key => ({...data[key], firebaseId: key})) : [];
-    render();
+// Наблюдатель за состоянием входа
+auth.onAuthStateChanged(user => {
+    if(user) {
+        currentUser = user;
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainApp").style.display = "block";
+        document.getElementById("mainNav").style.display = "flex";
+        document.getElementById("logoutBtn").style.display = "block";
+        loadExpenses();
+    } else {
+        currentUser = null;
+        document.getElementById("loginSection").style.display = "block";
+        document.getElementById("mainApp").style.display = "none";
+        document.getElementById("mainNav").style.display = "none";
+        document.getElementById("logoutBtn").style.display = "none";
+    }
 });
+
+function login(){
+    const email = document.getElementById("loginEmail").value;
+    const pass = document.getElementById("loginPassword").value;
+    auth.signInWithEmailAndPassword(email, pass)
+    .catch(err => notify("Ошибка входа: " + err.message));
+}
+
+function register(){
+    const email = document.getElementById("loginEmail").value;
+    const pass = document.getElementById("loginPassword").value;
+    auth.createUserWithEmailAndPassword(email, pass)
+    .catch(err => notify("Ошибка регистрации: " + err.message));
+}
+
+function logout(){
+    auth.signOut();
+}
+
+function loadExpenses(){
+    db.ref("users/" + currentUser.uid + "/expenses").on("value", (snapshot) => {
+        const data = snapshot.val();
+        expenses = data ? Object.keys(data).map(key => ({...data[key], firebaseId: key})) : [];
+        render();
+    });
+}
 
 function notify(text){
     let n=document.getElementById("notify")
@@ -37,6 +77,7 @@ function tab(id,btn){
 }
 
 function saveExpense(){
+    if(!currentUser) return;
     let amount=document.getElementById("amount")
     let category=document.getElementById("category")
     let desc=document.getElementById("desc")
@@ -50,12 +91,13 @@ function saveExpense(){
         date: editingId ? expenses.find(e => e.firebaseId === editingId).date : new Date().toISOString()
     };
 
+    const ref = db.ref("users/" + currentUser.uid + "/expenses");
     if(editingId) {
-        db.ref("expenses/" + editingId).update(expenseData);
+        ref.child(editingId).update(expenseData);
         notify("Обновлено");
         resetForm();
     } else {
-        db.ref("expenses").push(expenseData);
+        ref.push(expenseData);
         notify("Сохранено");
     }
 
@@ -66,16 +108,13 @@ function saveExpense(){
 function editEntry(id){
     const item = expenses.find(e => e.firebaseId === id);
     if(!item) return;
-
     editingId = id;
     document.getElementById("amount").value = item.amount;
     document.getElementById("category").value = item.category;
     document.getElementById("desc").value = item.desc;
-
     document.getElementById("formTitle").innerText = "Редактировать расход";
     document.getElementById("submitBtn").innerText = "Обновить запись";
     document.getElementById("cancelBtn").style.display = "block";
-
     tab('add', document.querySelector('.tab[onclick*="add"]'));
 }
 
@@ -90,7 +129,7 @@ function resetForm() {
 
 function del(firebaseId){
     if(confirm("Удалить запись?")) {
-        db.ref("expenses/" + firebaseId).remove();
+        db.ref("users/" + currentUser.uid + "/expenses/" + firebaseId).remove();
         notify("Удалено");
     }
 }
@@ -105,8 +144,7 @@ function renderHistory(){
     let html=""
     expenses.slice().reverse().forEach(e=>{
         let date=new Date(e.date).toLocaleDateString()
-        html += `
-        <tr>
+        html += `<tr>
             <td>${date}</td>
             <td>${e.category}</td>
             <td>${e.amount} ₽</td>
@@ -121,19 +159,15 @@ function renderHistory(){
 }
 
 function renderStats(){
-    let total=0;
-    let cats={};
+    let total=0; let cats={};
     expenses.forEach(e=>{
         total += e.amount;
         cats[e.category] = (cats[e.category] || 0) + e.amount;
     });
-
     document.getElementById("total").innerText = total + " ₽";
     document.getElementById("count").innerText = expenses.length;
-
     let ctx = document.getElementById("chart");
     if(chart) chart.destroy();
-    
     if(expenses.length > 0) {
         chart = new Chart(ctx, {
             type: "doughnut",
@@ -144,10 +178,7 @@ function renderStats(){
                     backgroundColor: ['#4b6cff', '#ff4b4b', '#ffb84b', '#2ecc71', '#9b59b6', '#34495e']
                 }]
             },
-            options: { 
-                maintainAspectRatio: false,
-                plugins: { legend: { position: "bottom" } } 
-            }
+            options: { maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
         });
     }
 }
@@ -158,7 +189,6 @@ function renderMonths(){
         let m = new Date(e.date).toLocaleString("ru",{month:"long",year:"numeric"});
         months[m] = (months[m] || 0) + e.amount;
     });
-
     let html="";
     for(let m in months){
         html += `<tr><td>${m}</td><td>${months[m]} ₽</td></tr>`;
